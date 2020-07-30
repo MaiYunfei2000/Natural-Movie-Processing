@@ -31,14 +31,14 @@ sns.set(style = 'white', context='talk', font_scale=1, rc={"lines.linewidth": 2}
 # Load data
 # ------------------------------------------------------------
 
-# data type 1
-
-D = dd.io.load("sherlock.h5")
-BOLD = D['BOLD']
-coords = D['coords']
-human_bounds = D['human_bounds']
-
-number_region, number_TR, number_subject = BOLD.shape
+# # data type 1
+#
+# D = dd.io.load("sherlock.h5")
+# BOLD = D['BOLD']
+# coords = D['coords']
+# human_bounds = D['human_bounds']
+#
+# number_region, number_TR, number_subject = BOLD.shape
 
 # data type 2
 
@@ -331,21 +331,23 @@ def find_best_model(dict_key, K_range=range(10, 101, 10)):
     print("\tbest K:", optimal_K,
           "\n\tcertain log likelihood:", optimal_ll)
     
-    HMM = brainiak.eventseg.event.EventSegment(K)
+    HMM = brainiak.eventseg.event.EventSegment(optimal_K)
                 
     return HMM
     
     
-# very costly... (normally 17*4=68 fits and 68+17=85 evaluations)
-HMM_auditory = find_best_model('data_aud_movie')
-HMM_postmedial = find_best_model('data_pmc_movie')
+# # very costly... (normally 17*4=68 fits and 68+17=85 evaluations)
+# HMM_auditory = find_best_model('data_aud_movie')
+# HMM_postmedial = find_best_model('data_pmc_movie')
+
+whole_data = get_certain_subj('data_aud_movie', range(17))
 
 # temporal: skip model-selection
 HMM_auditory = brainiak.eventseg.event.EventSegment(100)
-HMM_auditory.fit(get_certain_subj('data_aud_movie', range(17)))
+HMM_auditory.fit(whole_data)
 
 HMM_postmedial = brainiak.eventseg.event.EventSegment(50)
-HMM_postmedial.fit(get_certain_subj('data_pmc_movie', range(17)))
+HMM_postmedial.fit(whole_data)
 
 
 # ============================================================
@@ -367,26 +369,54 @@ high-level areas have more timepoints.
 auditory_segments = HMM_auditory.segments_[0]
 postmedial_segments = HMM_postmedial.segments_[0]
 
-print("auditory_segments\n", auditory_segments.shape)
-ls_demo = []
-for i in range(10):
-    ls_demo.append([int(d) for d in list(auditory_segments[i,:])])
-print(ls_demo)
+print("auditory_segments\n", auditory_segments.shape, auditory_segments)
+# ls_demo = []
+# for i in range(10):
+#     ls_demo.append([int(d) for d in list(auditory_segments[i,:])])
+# print(ls_demo)
 
-# TODO: plot the event segments
-fig, (ax1, ax2) = plt.subplots(2, 1)
-
-ax1.imshow(auditory_segments.T, aspect='auto', cmap='viridis')
-ax2.imshow(postmedial_segments.T, aspect='auto', cmap='viridis')
-ax2.set_xlabel('Timepoints')
-ax1.set_ylabel('Event label')
-ax2.set_ylabel('Event label')
-ax1.set_title('Auditory(Top) vs. Post Medial(Down)')
-
-fig.tight_layout()
-plt.show()
+# # TODO: plot the event segments
+# fig, (ax1, ax2) = plt.subplots(2, 1)
+#
+# ax1.imshow(auditory_segments.T, aspect='auto', cmap='viridis')
+# ax2.imshow(postmedial_segments.T, aspect='auto', cmap='viridis')
+# ax2.set_xlabel('Timepoints')
+# ax1.set_ylabel('Event label')
+# ax2.set_ylabel('Event label')
+# ax1.set_title('Auditory(Top) vs. Post Medial(Down)')
+#
+# fig.tight_layout()
+# plt.show()
 
 # TODO: quantitatively prove the difference
+
+# plot a histogram
+aud_event = HMM_auditory.predict(whole_data)
+pmc_event = HMM_postmedial.predict(whole_data)
+
+def cal_len(event):
+    length = 1
+    length_rec = []
+    for i in range(1, event.shape[0]):
+        if i < 3:
+            print("event[i], event[i-1]", event[i], event[i-1])
+        if event[i] == event[i-1]:
+            length += 1
+        else:
+            length_rec.append(length)
+            length = 1
+    return length_rec
+aud_len = cal_len(aud_event)
+pmc_len = cal_len(pmc_event)
+
+# print(aud_len)
+
+plt.title('Event Length Count')
+plt.hist(aud_len, bins=np.array(range(0, 61, 5)), color='b', alpha=0.7, label='Primary Auditory')
+plt.hist(pmc_len, bins=np.array(range(0, 121, 5)), color='r', alpha=0.7, label='Posterior Medial')
+plt.legend()
+plt.xlabel('Event Length (TR)')
+plt.show()
 
 # ============================================================
 # 2. Comparison of Event Boundaries
